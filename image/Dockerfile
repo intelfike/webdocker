@@ -1,4 +1,6 @@
 FROM ubuntu:latest
 RUN apt update
 RUN apt upgrade -y
-RUN 
+ADD server .
+RUN mkdir data
+RUN touch data/text
