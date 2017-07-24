@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"encoding/csv"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -42,7 +44,6 @@ func init() {
 			exec.Command("docker", "rm", "-f", name).Run()
 			return
 		}
-
 		http.Redirect(w, r, "/", 302)
 	})
 	handleFunc("/remove", http.MethodPost, func(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +58,25 @@ func init() {
 		http.Redirect(w, r, "/", 302)
 	})
 	handleFunc("/update", http.MethodPost, func(w http.ResponseWriter, r *http.Request) {
-
+		r.ParseForm()
+		name := r.PostFormValue("name")
+		text := r.PostFormValue("text")
+		fmt.Println(text)
+		// コンテナ内にコピーするための一時ファイルを作成
+		filename := "tmp/" + name + ".text"
+		filew, err := os.Create(filename)
+		if err != nil {
+			fmt.Fprint(w, err)
+		}
+		filew.Write([]byte(text))
+		filew.Close()
+		// 作成した一時ファイルをコピーする
+		err = exec.Command("docker", "cp", filename, name+":/data/text").Run()
+		if err != nil {
+			http.Redirect(w, r, "/?target=Command&error=cp", 302)
+			return
+		}
+		http.Redirect(w, r, "/", 302)
 	})
 	handleFunc("/start", http.MethodPost, func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
@@ -93,12 +112,89 @@ func init() {
 			return
 		}
 		html := ""
-		out, err := exec.Command("docker", "ps", "-a").Output()
+		psaout, err := exec.Command("docker", "ps", "-a", "--format", "{{.Names}},{{.Image}},{{.Ports}}").Output()
 		if err != nil {
 			fmt.Fprint(w, err)
 			return
 		}
-		html += "<pre>" + string(out) + "</pre>"
+		csvReader := csv.NewReader(bytes.NewReader(psaout))
+		psaout, err = exec.Command("docker", "ps", "--format", "{{.Names}},{{.Image}},{{.Ports}}").Output()
+		if err != nil {
+			fmt.Fprint(w, err)
+			return
+		}
+		// コンテナを表示する
+		for {
+			v, err := csvReader.Read()
+			if err != nil {
+				break
+			}
+			image := v[1]
+			if image != "webdocker" {
+				continue
+			}
+			name := v[0]
+			// cport ->より左側を取る アクセスできる形式に変換
+			cport := v[2]
+			running := cport != ""
+			text := make([]byte, 0)
+			statusClass := "stopped"
+			// コンテナが起動していたら
+			if running {
+				cport = cport[:strings.Index(cport, "->")]
+				text, err = exec.Command("docker", "exec", name, "cat", "/data/text").Output()
+				if err != nil {
+					fmt.Fprint(w, err)
+					return
+				}
+				statusClass = "running"
+			} else {
+				filer, err := os.Open("tmp/" + name + ".text")
+				if err != nil {
+					goto skip
+				}
+				b := new(bytes.Buffer)
+				io.Copy(b, filer)
+				filer.Close()
+				text = b.Bytes()
+			}
+		skip:
+
+			hiddenName := `<input type="hidden" name="name" value="` + name + `">`
+			html += `
+<div class="item ` + statusClass + `">
+	<h3>` + name + `</h3>
+	<hr>`
+			// 起動状態によって表示を変える
+			if running {
+				// 起動している
+				html += `
+	<form action="/stop" method="post">
+		<input type="submit" value="停止" class="stop">
+		` + hiddenName + `
+	</form>
+	<a class="port" href="http://` + cport + `" target="_new">` + cport + `</a>
+	<form action="/update" method="post">
+		<textarea name="text" cols="30" rows="10">` + string(text) + `</textarea><br>
+		` + hiddenName + `
+		<input type="submit" value="更新" class="update">
+	</form>`
+			} else {
+				// 停止している
+				html += `
+	<form action="/start" method="post">
+		<input type="submit" value="起動" class="start">
+		` + hiddenName + `
+	</form>
+	<textarea name="text" cols="30" rows="10" readonly>` + string(text) + `</textarea><br>
+	<form action="/remove" method="post">
+		` + hiddenName + `
+		<input type="submit" value="削除" class="remove">
+	</form>`
+			}
+
+			html += `</div>`
+		}
 		doc, err := goquery.NewDocumentFromReader(bytes.NewReader(b))
 		if err != nil {
 			fmt.Fprint(w, err)

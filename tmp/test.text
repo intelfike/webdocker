@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<title>テストページ</title>
+<body>
+<pre>
+import main
+
+func main(){
+ fmt.Println("j")
+}
+</pre>
+</body>

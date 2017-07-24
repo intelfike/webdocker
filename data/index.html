@@ -15,36 +15,73 @@
 		#console input{
 			margin: 2px 0px;
 		}
+		main{
+			display: flex;
+			flex-direction: row;
+			flex-wrap: wrap;
+		}
+		.item{
+			padding: 8px;
+			margin: 8px;
+			border: solid black 1px;
+		}
+		.running{
+			background-color: #aaffaa;			
+		}
+		.stopped{
+			background-color: #efefef;
+		}
+		
+		.remove{
+			background-color: red;
+			color: white;
+		}
+		.stop{
+			background-color: yellow;	
+		}
+		.update, .start{
+			background-color: #aaffdd;
+		}
+/*		.remove, .update, .stop, .start{
+			margin: 4px;
+		}
+*/		input[type="submit"]{
+			font-size: 100%;
+		}
+		h2, h3, h4{
+			margin: 0;
+		}
+		h3{
+			text-align: center;
+		}
+		#containers{
+			padding: 8px;
+		}
 	</style>
 </head>
 <body>
+	<h1>Web Docker</h1>
 	<form action="/create" method="post" id="console">
+		<h2>新規作成</h2>
 		<input type="text" id="name" name="name" placeholder="コンテナ名">
 		<input type="number" id="port" name="port" placeholder="ポート番号">
 		<input type="submit" value="新規コンテナ作成">
 	</form>
-	<main>
-		<div>コンテナ</div>
-		<div>コンテナ</div>
-		<div>コンテナ</div>
-		<div>コンテナ</div>
-	</main>
+	<div id="containers">
+		<h2>コンテナ</h2>
+		<main>
+		</main>
+	</div>
 </body>
 <script>
-		// var aj := new XMLHttpRequest();
-		// aj.open("GET", "/")
-		// aj.onload = function(){
-		// 	var res = aj.responseText;
-		// }
-		// aj.send("")
-
-	// function send(){
-	// 	var aj := new XMLHttpRequest();
-	// 	aj.open("Post", "/")
-	// 	aj.onload = function(){
-	// 		var res = aj.responseText;
-	// 	}
-	// 	aj.send("")
-	// }
+function ajxsend(action, sendstr){
+	var xmlhttp = new XMLHttpRequest()
+	xmlhttp.onload = function(){
+		location.reload()
+	}
+	xmlhttp.open("POST", action, true)
+	xmlhttp.setRequestHeader('Content-Type','application/x-www-form-urlencoded')
+	xmlhttp.send(sendstr)
+}
 </script>
 </html>
